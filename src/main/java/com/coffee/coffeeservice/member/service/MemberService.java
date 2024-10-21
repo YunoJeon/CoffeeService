@@ -2,8 +2,11 @@ package com.coffee.coffeeservice.member.service;
 
 import static com.coffee.coffeeservice.common.type.ErrorCode.ALREADY_EXISTS_USER;
 import static com.coffee.coffeeservice.common.type.ErrorCode.LOGIN_ERROR;
+import static com.coffee.coffeeservice.common.type.ErrorCode.NOT_FOUND_USER;
+import static com.coffee.coffeeservice.common.type.ErrorCode.NOT_MATCH_TOKEN;
 import static com.coffee.coffeeservice.member.type.RoleType.BUYER;
 
+import com.auth0.jwt.exceptions.SignatureVerificationException;
 import com.coffee.coffeeservice.common.exception.CustomException;
 import com.coffee.coffeeservice.member.dto.MemberDto;
 import com.coffee.coffeeservice.member.entity.Member;
@@ -57,5 +60,24 @@ public class MemberService {
     }
 
     return jwtUtil.generateToken(email);
+  }
+
+  public MemberDto getMember(String email, String token) {
+
+    Member member = memberRepository.findByEmail(email)
+        .orElseThrow(() -> new CustomException(NOT_FOUND_USER));
+
+    try {
+      jwtUtil.validateToken(token);
+    } catch (SignatureVerificationException e) {
+      throw new CustomException(NOT_MATCH_TOKEN);
+    }
+
+    return MemberDto.builder()
+        .memberName(member.getMemberName())
+        .phone(member.getPhone())
+        .email(member.getEmail())
+        .address(member.getAddress())
+        .build();
   }
 }

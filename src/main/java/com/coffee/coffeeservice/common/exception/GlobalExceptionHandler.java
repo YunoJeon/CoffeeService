@@ -1,5 +1,7 @@
 package com.coffee.coffeeservice.common.exception;
 
+import static com.coffee.coffeeservice.common.type.ErrorCode.INTERNAL_SEVER_ERROR;
+
 import com.coffee.coffeeservice.common.type.ErrorCode;
 import java.util.HashMap;
 import java.util.Map;
@@ -31,5 +33,15 @@ public class GlobalExceptionHandler {
       errors.put(field, message);
     });
     return new ResponseEntity<>(errors, HttpStatus.BAD_REQUEST);
+  }
+
+  @ExceptionHandler(Exception.class)
+  public ResponseEntity<ErrorResponse> handleException(Exception e) {
+    ErrorResponse errorResponse = new ErrorResponse(INTERNAL_SEVER_ERROR.getCode(),
+        INTERNAL_SEVER_ERROR.getMessage());
+
+    e.getStackTrace();
+
+    return new ResponseEntity<>(errorResponse, HttpStatus.INTERNAL_SERVER_ERROR);
   }
 }

@@ -2,6 +2,8 @@ package service;
 
 import static com.coffee.coffeeservice.common.type.ErrorCode.ALREADY_EXISTS_USER;
 import static com.coffee.coffeeservice.common.type.ErrorCode.LOGIN_ERROR;
+import static com.coffee.coffeeservice.common.type.ErrorCode.NOT_FOUND_USER;
+import static com.coffee.coffeeservice.common.type.ErrorCode.NOT_MATCH_TOKEN;
 import static com.coffee.coffeeservice.member.type.RoleType.BUYER;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
@@ -9,11 +11,14 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import com.auth0.jwt.algorithms.Algorithm;
+import com.auth0.jwt.exceptions.SignatureVerificationException;
 import com.coffee.coffeeservice.common.exception.CustomException;
 import com.coffee.coffeeservice.member.dto.MemberDto;
 import com.coffee.coffeeservice.member.entity.Member;
@@ -186,5 +191,59 @@ class MemberServiceTest {
         () -> memberService.login(email, password));
     // then
     assertEquals(LOGIN_ERROR, e.getErrorCode());
+  }
+
+  @Test
+  void getMember_Success() {
+    // given
+    String email = "coffee@gmail.com";
+    String token = "createdJwtToken";
+    Member member = new Member();
+    member.setEmail(email);
+    member.setMemberName("Test User");
+    member.setPhone("010-1234-5678");
+    member.setAddress("Test Address");
+
+    when(memberRepository.findByEmail(email)).thenReturn(Optional.of(member));
+    when(jwtUtil.validateToken(token)).thenReturn(null);
+    // when
+    MemberDto memberDto = memberService.getMember(email, token);
+    // then
+    assertEquals(email, memberDto.getEmail());
+    assertEquals("Test User", memberDto.getMemberName());
+    assertEquals("010-1234-5678", memberDto.getPhone());
+    assertEquals("Test Address", memberDto.getAddress());
+  }
+
+  @Test
+  void getMember_Failure_InvalidToken() {
+    // given
+    String email = "coffee@gmail.com";
+    String token = "createdJwtToken";
+    Member member = new Member();
+    member.setEmail(email);
+
+    when(memberRepository.findByEmail(email)).thenReturn(Optional.of(member));
+    Algorithm algorithm = Algorithm.HMAC256("secret");
+    doThrow(new SignatureVerificationException(algorithm)).when(jwtUtil).validateToken(token);
+    // when
+    CustomException e = assertThrows(CustomException.class,
+        () -> memberService.getMember(email, token));
+    // then
+    assertEquals(NOT_MATCH_TOKEN, e.getErrorCode());
+  }
+
+  @Test
+  void getMember_Failure_InvalidEmail() {
+    // given
+    String email = "coffee1@gmail.com";
+    String token = "createdJwtToken";
+
+    when(memberRepository.findByEmail(email)).thenReturn(Optional.empty());
+    // when
+    CustomException e = assertThrows(CustomException.class,
+        () -> memberService.getMember(email, token));
+    // then
+    assertEquals(NOT_FOUND_USER, e.getErrorCode());
   }
 }
