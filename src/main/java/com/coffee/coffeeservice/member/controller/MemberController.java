@@ -2,12 +2,14 @@ package com.coffee.coffeeservice.member.controller;
 
 import com.coffee.coffeeservice.member.dto.MemberDto;
 import com.coffee.coffeeservice.member.dto.MemberLoginDto;
+import com.coffee.coffeeservice.member.dto.MemberUpdateDto;
 import com.coffee.coffeeservice.member.service.MemberService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -45,5 +47,15 @@ public class MemberController {
     MemberDto memberDto = memberService.getMember(email, token);
 
     return ResponseEntity.ok(memberDto);
+  }
+
+  @PatchMapping("/{email}")
+  public ResponseEntity<Void> updateMember(@PathVariable String email,
+      @RequestHeader("AUTH-TOKEN") String token,
+      @RequestBody @Valid MemberUpdateDto memberUpdateDto) {
+
+    memberService.updateMember(email, token, memberUpdateDto);
+
+    return ResponseEntity.noContent().build();
   }
 }

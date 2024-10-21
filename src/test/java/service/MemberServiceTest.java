@@ -4,11 +4,14 @@ import static com.coffee.coffeeservice.common.type.ErrorCode.ALREADY_EXISTS_USER
 import static com.coffee.coffeeservice.common.type.ErrorCode.LOGIN_ERROR;
 import static com.coffee.coffeeservice.common.type.ErrorCode.NOT_FOUND_USER;
 import static com.coffee.coffeeservice.common.type.ErrorCode.NOT_MATCH_TOKEN;
+import static com.coffee.coffeeservice.common.type.ErrorCode.WRONG_PASSWORD;
 import static com.coffee.coffeeservice.member.type.RoleType.BUYER;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.doThrow;
@@ -21,6 +24,7 @@ import com.auth0.jwt.algorithms.Algorithm;
 import com.auth0.jwt.exceptions.SignatureVerificationException;
 import com.coffee.coffeeservice.common.exception.CustomException;
 import com.coffee.coffeeservice.member.dto.MemberDto;
+import com.coffee.coffeeservice.member.dto.MemberUpdateDto;
 import com.coffee.coffeeservice.member.entity.Member;
 import com.coffee.coffeeservice.member.repository.MemberRepository;
 import com.coffee.coffeeservice.member.service.MailService;
@@ -245,5 +249,190 @@ class MemberServiceTest {
         () -> memberService.getMember(email, token));
     // then
     assertEquals(NOT_FOUND_USER, e.getErrorCode());
+  }
+
+  @Test
+  void updateMember_SingleField_Success() {
+    // given
+    String email = "coffee@gmail.com";
+    String token = "createdJwtToken";
+    MemberUpdateDto memberUpdateDto = MemberUpdateDto.builder()
+        .phone("010-2345-6789")
+        .currentPassword("12345678")
+        .build();
+
+    Member member = new Member();
+    member.setEmail(email);
+    member.setPhone("010-1234-5678");
+    member.setAddress("none");
+    member.setPassword(PasswordUtil.hashPassword("12345678"));
+
+    when(memberRepository.findByEmail(email)).thenReturn(Optional.of(member));
+    when(jwtUtil.validateToken(token)).thenReturn(email);
+    // when
+    memberService.updateMember(email, token, memberUpdateDto);
+    // then
+    assertEquals("010-2345-6789", member.getPhone());
+    assertEquals("coffee@gmail.com", member.getEmail());
+    assertEquals("none", member.getAddress());
+    assertTrue(PasswordUtil.matches("12345678", member.getPassword()));
+    assertNotNull(member.getUpdatedAt());
+    verify(memberRepository).save(member);
+  }
+
+  @Test
+  void updateMember_TwoField_Success() {
+    // given
+    String email = "coffee@gmail.com";
+    String token = "createdJwtToken";
+    MemberUpdateDto memberUpdateDto = MemberUpdateDto.builder()
+        .phone("010-2345-6789")
+        .address("Updated Address")
+        .currentPassword("12345678")
+        .build();
+
+    Member member = new Member();
+    member.setEmail(email);
+    member.setPhone("010-1234-5678");
+    member.setAddress("none");
+    member.setPassword(PasswordUtil.hashPassword("12345678"));
+
+    when(memberRepository.findByEmail(email)).thenReturn(Optional.of(member));
+    when(jwtUtil.validateToken(token)).thenReturn(email);
+    // when
+    memberService.updateMember(email, token, memberUpdateDto);
+    // then
+    assertEquals("010-2345-6789", member.getPhone());
+    assertEquals("coffee@gmail.com", member.getEmail());
+    assertEquals("Updated Address", member.getAddress());
+    assertTrue(PasswordUtil.matches("12345678", member.getPassword()));
+    assertNotNull(member.getUpdatedAt());
+    verify(memberRepository).save(member);
+  }
+
+  @Test
+  void updateMember_FullUpdate_Success() {
+    // given
+    String email = "coffee@gmail.com";
+    String token = "createdJwtToken";
+    MemberUpdateDto memberUpdateDto = MemberUpdateDto.builder()
+        .phone("010-2345-6789")
+        .currentPassword("12345678")
+        .address("Updated Address")
+        .email("newCoffee@gmail.com")
+        .password("newPassword")
+        .build();
+
+    Member member = new Member();
+    member.setEmail(email);
+    member.setPhone("010-1234-5678");
+    member.setAddress("none");
+    member.setPassword(PasswordUtil.hashPassword("12345678"));
+
+    when(memberRepository.findByEmail(email)).thenReturn(Optional.of(member));
+    when(jwtUtil.validateToken(token)).thenReturn(email);
+    // when
+    memberService.updateMember(email, token, memberUpdateDto);
+    // then
+    assertEquals("010-2345-6789", member.getPhone());
+    assertEquals("newCoffee@gmail.com", member.getEmail());
+    assertEquals("Updated Address", member.getAddress());
+    assertTrue(PasswordUtil.matches("newPassword", member.getPassword()));
+    assertNotNull(member.getUpdatedAt());
+    verify(memberRepository).save(member);
+  }
+
+  @Test
+  void updateMember_Failure_InvalidToken() {
+    // given
+    String email = "coffee@gmail.com";
+    String token = "createdJwtToken";
+    MemberUpdateDto memberUpdateDto = MemberUpdateDto.builder()
+        .phone("010-2345-6789")
+        .currentPassword("12345678")
+        .build();
+
+    Member member = new Member();
+    member.setEmail(email);
+    member.setPhone("010-1234-5678");
+    member.setAddress("none");
+    member.setPassword(PasswordUtil.hashPassword("12345678"));
+
+    when(memberRepository.findByEmail(email)).thenReturn(Optional.of(member));
+    Algorithm algorithm = Algorithm.HMAC256("secret");
+    doThrow(new SignatureVerificationException(algorithm)).when(jwtUtil).validateToken(token);
+    // when
+    CustomException e = assertThrows(CustomException.class,
+        () -> memberService.updateMember(email, token, memberUpdateDto));
+    // then
+    assertEquals(NOT_MATCH_TOKEN, e.getErrorCode());
+    verify(memberRepository, never()).save(any());
+  }
+
+  @Test
+  void updateMember_Failure_UserNotFound() {
+    // given
+    String email = "newCoffee@gmail.com";
+    String token = "createdJwtToken";
+    MemberUpdateDto memberUpdateDto = MemberUpdateDto.builder()
+        .phone("010-2345-6789")
+        .currentPassword("12345678")
+        .build();
+
+    when(memberRepository.findByEmail(email)).thenReturn(Optional.empty());
+    // when
+    CustomException e = assertThrows(CustomException.class,
+        () -> memberService.updateMember(email, token, memberUpdateDto));
+    // then
+    assertEquals(NOT_FOUND_USER, e.getErrorCode());
+    verify(memberRepository, never()).save(any());
+  }
+
+  @Test
+  void updateMember_Failure_EmailAlreadyExists() {
+    // given
+    String email = "coffee@gmail.com";
+    String token = "createdJwtToken";
+    MemberUpdateDto memberUpdateDto = MemberUpdateDto.builder()
+        .email("existingEmail@gmail.com")
+        .currentPassword("12345678")
+        .build();
+
+    Member member = new Member();
+    member.setEmail(email);
+    member.setPassword(PasswordUtil.hashPassword("12345678"));
+
+    when(memberRepository.findByEmail(email)).thenReturn(Optional.of(member));
+    when(memberRepository.existsByEmail(memberUpdateDto.getEmail())).thenReturn(true);
+    // when
+    CustomException e = assertThrows(CustomException.class,
+        () -> memberService.updateMember(email, token, memberUpdateDto));
+    // then
+    assertEquals(ALREADY_EXISTS_USER, e.getErrorCode());
+    verify(memberRepository, never()).save(any());
+  }
+
+  @Test
+  void updateMember_Failure_WrongPassword() {
+    // given
+    String email = "coffee@gmail.com";
+    String token = "createdJwtToken";
+    MemberUpdateDto memberUpdateDto = MemberUpdateDto.builder()
+        .password("newPassword")
+        .currentPassword("wrongPassword")
+        .build();
+
+    Member member = new Member();
+    member.setEmail(email);
+    member.setPassword(PasswordUtil.hashPassword("12345678"));
+
+    when(memberRepository.findByEmail(email)).thenReturn(Optional.of(member));
+    when(jwtUtil.validateToken(token)).thenReturn(email);
+    // when
+    CustomException e = assertThrows(CustomException.class,
+        () -> memberService.updateMember(email, token, memberUpdateDto));
+    // then
+    assertEquals(WRONG_PASSWORD, e.getErrorCode());
+    verify(memberRepository, never()).save(any());
   }
 }

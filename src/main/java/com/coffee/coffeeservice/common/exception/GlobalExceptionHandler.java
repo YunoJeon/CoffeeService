@@ -5,6 +5,7 @@ import static com.coffee.coffeeservice.common.type.ErrorCode.INTERNAL_SEVER_ERRO
 import com.coffee.coffeeservice.common.type.ErrorCode;
 import java.util.HashMap;
 import java.util.Map;
+import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.MethodArgumentNotValidException;
@@ -40,7 +41,7 @@ public class GlobalExceptionHandler {
     ErrorResponse errorResponse = new ErrorResponse(INTERNAL_SEVER_ERROR.getCode(),
         INTERNAL_SEVER_ERROR.getMessage());
 
-    e.getStackTrace();
+    LoggerFactory.getLogger(GlobalExceptionHandler.class).error(e.getMessage(), e);
 
     return new ResponseEntity<>(errorResponse, HttpStatus.INTERNAL_SERVER_ERROR);
   }
