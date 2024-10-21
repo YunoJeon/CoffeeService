@@ -1,6 +1,7 @@
 package service;
 
 import static com.coffee.coffeeservice.common.type.ErrorCode.ALREADY_EXISTS_USER;
+import static com.coffee.coffeeservice.common.type.ErrorCode.LOGIN_ERROR;
 import static com.coffee.coffeeservice.member.type.RoleType.BUYER;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
@@ -21,6 +22,7 @@ import com.coffee.coffeeservice.member.service.MailService;
 import com.coffee.coffeeservice.member.service.MemberService;
 import com.coffee.coffeeservice.util.JwtUtil;
 import com.coffee.coffeeservice.util.PasswordUtil;
+import java.time.LocalDateTime;
 import java.util.Optional;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -42,6 +44,9 @@ class MemberServiceTest {
 
   @Mock
   private MailService mailService;
+
+  @Mock
+  private JwtUtil jwtUtil;
 
   private MemberDto memberDto;
 
@@ -113,5 +118,73 @@ class MemberServiceTest {
       assertEquals(hashedPassword, member.getPassword());
       assertEquals(memberDto.getEmail(), member.getEmail());
     }
+  }
+
+  @Test
+  void login_success() {
+    // given
+    String email = "coffee@gmail.com";
+    String password = "12345678";
+    Member member = new Member();
+    member.setEmail(email);
+    member.setPassword(PasswordUtil.hashPassword(password));
+    member.setCertificationAt(LocalDateTime.now());
+
+    when(memberRepository.findByEmail(email)).thenReturn(Optional.of(member));
+    when(jwtUtil.generateToken(email)).thenReturn("token");
+    // when
+    String token = memberService.login(email, password);
+    // then
+    assertEquals("token", token);
+  }
+
+  @Test
+  void login_Failure_InvalidEmail() {
+    // given
+    String email = "coffee@gmail.com";
+    String password = "12345678";
+
+    when(memberRepository.findByEmail(email)).thenReturn(Optional.empty());
+    // when
+    CustomException e = assertThrows(CustomException.class,
+        () -> memberService.login(email, password));
+    // then
+    assertEquals(LOGIN_ERROR, e.getErrorCode());
+  }
+
+  @Test
+  void login_Failure_InvalidPassword() {
+    // given
+    String email = "coffee@gmail.com";
+    String password = "123456789";
+    Member member = new Member();
+    member.setEmail(email);
+    member.setPassword(PasswordUtil.hashPassword("12345678"));
+    member.setCertificationAt(LocalDateTime.now());
+
+    when(memberRepository.findByEmail(email)).thenReturn(Optional.of(member));
+    // when
+    CustomException e = assertThrows(CustomException.class,
+        () -> memberService.login(email, password));
+    // then
+    assertEquals(LOGIN_ERROR, e.getErrorCode());
+  }
+
+  @Test
+  void login_Failure_NotCertified() {
+    // given
+    String email = "coffee@gmail.com";
+    String password = "12345678";
+    Member member = new Member();
+    member.setEmail(email);
+    member.setPassword(PasswordUtil.hashPassword(password));
+
+    when(memberRepository.findByEmail(email)).thenReturn(Optional.of(member));
+
+    // when
+    CustomException e = assertThrows(CustomException.class,
+        () -> memberService.login(email, password));
+    // then
+    assertEquals(LOGIN_ERROR, e.getErrorCode());
   }
 }

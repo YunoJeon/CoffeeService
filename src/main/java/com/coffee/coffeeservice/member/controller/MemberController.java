@@ -1,6 +1,7 @@
 package com.coffee.coffeeservice.member.controller;
 
 import com.coffee.coffeeservice.member.dto.MemberDto;
+import com.coffee.coffeeservice.member.dto.MemberLoginDto;
 import com.coffee.coffeeservice.member.service.MemberService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -24,5 +25,13 @@ public class MemberController {
     memberService.addMember(memberDto);
 
     return ResponseEntity.status(HttpStatus.CREATED).build();
+  }
+
+  @PostMapping("/login")
+  public ResponseEntity<String> login(@RequestBody @Valid MemberLoginDto memberLoginDto) {
+
+    String token = memberService.login(memberLoginDto.getEmail(), memberLoginDto.getPassword());
+
+    return ResponseEntity.ok(token);
   }
 }
